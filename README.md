@@ -23,6 +23,51 @@ Groq (LLaMA 3.3 70B).
 | 💬 Talking Points | Angles to emphasise in your interview |
 | ❓ Questions to Ask | 3 tailored questions for the interviewer |
 
+## How it works — Agent Architecture
+
+JobLens is a tool-calling agent loop, not a single LLM call — the model runs in a
+cycle, deciding at each step whether to gather more information or produce the final
+report. On each turn, the model receives the full conversation history (including the
+job description and any prior search results) and either emits a `web_search` tool
+call or writes the report directly. When a tool call is detected, the result is
+injected back into the conversation as a user message and the model decides again,
+repeating until it has enough context. A `MAX_TOOL_TURNS` guard caps the number of
+searches and forces report generation if the model keeps searching.
+
+```
+  User pastes JD
+       |
+       v
+  LLM decides: search or write?
+       |                  |
+       v                  v
+  web_search()       Final report
+       |
+       v
+  Result fed back into context
+       |
+       v
+  LLM decides again...
+```
+
+## Design Decisions
+
+- **Groq over OpenAI** — Groq's free tier has generous rate limits and very fast
+  inference, which makes iteration cheap. No credit card required to get started.
+
+- **Regex tool-call parsing instead of the OpenAI function-calling spec** — Groq's
+  LLaMA models do support structured tool use, but parsing a `<tool>/<input>` tag
+  from raw text keeps the implementation model-agnostic. Swapping in a different
+  provider or a locally-hosted model requires no changes to the agent loop.
+
+- **Rate-limit handling** — a 3.5-second minimum gap is enforced between all LLM
+  calls. On a 429 response the app retries up to three times with escalating backoff
+  (15s, 30s, 45s) before giving up.
+
+- **Wikipedia fallback** — if DuckDuckGo is rate-limited or returns no results, the
+  agent falls back to the Wikipedia search API. Coverage is narrower but it keeps the
+  agent functional without any additional API keys.
+
 ## Tech stack
 
 - **Frontend:** [Gradio](https://gradio.app) (runs locally in your browser)
