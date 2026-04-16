@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+import os, re, json, math, time, traceba.py
